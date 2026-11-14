@@ -1,45 +1,8 @@
-import fs from "fs";
-import path from "path";
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import matter from "gray-matter";
 import { site } from "@/data/site";
-
-function getLatestArticles(limit) {
-  try {
-    const dir = path.join(process.cwd(), "content", "articles");
-    if (!fs.existsSync(dir)) return [];
-    const files = fs.readdirSync(dir).filter((file) => file.endsWith(".md"));
-    const articles = files.map((file) => {
-      const slug = file.replace(/\.md$/, "");
-      const raw = fs.readFileSync(path.join(dir, file), "utf8");
-      const { data } = matter(raw);
-      return {
-        slug,
-        title: typeof data.title === "string" ? data.title : slug,
-        date: typeof data.date === "string" ? data.date : "",
-      };
-    });
-    return articles
-      .sort((a, b) => {
-        if (a.date === b.date) return 0;
-        return a.date < b.date ? 1 : -1;
-      })
-      .slice(0, limit);
-  } catch (error) {
-    return [];
-  }
-}
-
-function formatDate(value) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 function GitHubIcon({ className = "h-4 w-4" }) {
   return (
@@ -85,7 +48,34 @@ function MailIcon({ className = "h-4 w-4" }) {
 
 export default function Footer() {
   const year = new Date().getFullYear();
-  const articles = getLatestArticles(10);
+  const [articles, setArticles] = useState([]);
+
+  useEffect(() => {
+    async function fetchPosts() {
+      try {
+        const res = await fetch("https://admin.assan.tech/wp-json/wp/v2/posts?per_page=5");
+        if (res.ok) {
+          const data = await res.json();
+          const formatted = data.map((post) => {
+            const dateObj = new Date(post.date);
+            return {
+              slug: post.slug,
+              title: post.title.rendered,
+              date: dateObj.toLocaleDateString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              }),
+            };
+          });
+          setArticles(formatted);
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    fetchPosts();
+  }, []);
 
   return (
     <footer className="relative overflow-hidden bg-[var(--navy)] text-[var(--paper)]">
@@ -221,11 +211,12 @@ export default function Footer() {
                     href={`/articles/${article.slug}`}
                     className="group flex items-baseline justify-between gap-3 border-b border-white/10 py-2 transition-colors duration-300 hover:border-[var(--accent)]"
                   >
-                    <span className="font-display text-sm font-medium leading-snug text-white/85 transition-colors duration-300 group-hover:text-[var(--accent)] md:text-base">
-                      {article.title}
-                    </span>
+                    <span 
+                      className="font-display text-sm font-medium leading-snug text-white/85 transition-colors duration-300 group-hover:text-[var(--accent)] md:text-base"
+                      dangerouslySetInnerHTML={{ __html: article.title }}
+                    />
                     <span className="flex-shrink-0 text-[10px] tracking-[0.2em] whitespace-nowrap text-white/40 uppercase">
-                      {formatDate(article.date)}
+                      {article.date}
                     </span>
                   </Link>
                 </li>
