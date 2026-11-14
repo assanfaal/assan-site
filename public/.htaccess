@@ -1,0 +1,12 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # If the requested file or directory does not exist
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  
+  # And the URL matches /articles/something
+  # Route it to the fallback page so Next.js can load the client component
+  RewriteRule ^articles/([^/]+)/?$ /articles/fallback/index.html [L]
+</IfModule>

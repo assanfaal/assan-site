@@ -1,13 +1,46 @@
-import Link from "next/link";
-import { getAllArticles, formatArticleDate } from "@/lib/articles";
+"use client";
 
-export const metadata = {
-  title: "Articles",
-  description: "Notes on tech, learning and life by Assan Faal.",
-};
+import { useEffect, useState } from "react";
+import Link from "next/link";
 
 export default function ArticlesPage() {
-  const articles = getAllArticles();
+  const [articles, setArticles] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchArticles() {
+      try {
+        const res = await fetch("https://admin.assan.tech/wp-json/wp/v2/posts?per_page=100&_embed");
+        if (!res.ok) throw new Error("Failed to fetch");
+        const data = await res.json();
+        
+        const formatted = data.map((post) => {
+          const dateObj = new Date(post.date);
+          const formattedDate = dateObj.toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          });
+          
+          return {
+            slug: post.slug,
+            title: post.title.rendered,
+            summary: post.excerpt.rendered.replace(/<[^>]+>/g, "").trim(),
+            date: formattedDate,
+            tags: post._embedded && post._embedded["wp:term"] ? post._embedded["wp:term"][0].map((t) => t.name) : [],
+          };
+        });
+        
+        setArticles(formatted);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchArticles();
+  }, []);
 
   return (
     <div className="relative w-full bg-[var(--paper)]">
@@ -34,7 +67,16 @@ export default function ArticlesPage() {
 
       <section className="border-t border-[var(--line)] py-16 md:py-24">
         <div className="container-x">
-          {articles.length === 0 ? (
+          {loading ? (
+            <div className="flex flex-col gap-6 animate-pulse">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex flex-col gap-4 border-b border-[var(--line)] pb-8 md:flex-row md:items-center md:gap-8">
+                  <div className="h-4 w-24 rounded bg-[var(--line)]/50"></div>
+                  <div className="h-8 w-full max-w-lg rounded bg-[var(--line)]/50"></div>
+                </div>
+              ))}
+            </div>
+          ) : articles.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-[var(--line)] bg-white p-10 text-center md:p-16">
               <p className="font-display text-lg font-medium tracking-tight text-[var(--navy)] md:text-xl">
                 First article is on the way.
@@ -53,7 +95,7 @@ export default function ArticlesPage() {
                   >
                     <div className="flex flex-col gap-2 md:pt-1">
                       <span className="text-[10px] font-semibold tracking-[0.22em] text-[var(--muted)] uppercase">
-                        {formatArticleDate(article.date)}
+                        {article.date}
                       </span>
                       {article.tags.length > 0 && (
                         <ul className="flex flex-wrap gap-1.5">
@@ -70,9 +112,10 @@ export default function ArticlesPage() {
                     </div>
 
                     <div className="flex flex-col gap-2">
-                      <h2 className="font-display text-2xl font-semibold leading-[1.15] tracking-tight text-[var(--navy)] transition-colors duration-300 group-hover:text-[var(--accent)] md:text-3xl">
-                        {article.title}
-                      </h2>
+                      <h2 
+                        className="font-display text-2xl font-semibold leading-[1.15] tracking-tight text-[var(--navy)] transition-colors duration-300 group-hover:text-[var(--accent)] md:text-3xl"
+                        dangerouslySetInnerHTML={{ __html: article.title }}
+                      />
                       {article.summary ? (
                         <p className="max-w-2xl text-sm leading-relaxed text-[var(--charcoal)] md:text-base">
                           {article.summary}
